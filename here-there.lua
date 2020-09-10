@@ -1,32 +1,27 @@
---  
---   ???
---
---   v1.0
+--   . . . . . . . . . . . . . *************
+--   . . . . . . . . . . . . . . ***********
+--   . ??? . . . . . . . . . . . *********** 
+--   . HERE/ . . . . . . . . . . ***********
+--   . THERE . . . . . . . . . . ***********
+--   . v1.0. . . . . . . . . . . ***********
+--   . . . . . . . . . . . . . . ***********
+--   . . . . . . . . . . . . . *************
+
 
 engine.name = '32Sines'
 
 local darkmode = 0
-local selection = 6
+local selection = 0
 local SCREEN_FRAMERATE = 2
 local screen_dirty = true
 local validChars
 local tones = {}
 local poll_timer = 1
 local random_timer = 0
-local playing = 1
-local rec_level = 1.0
-local modified_level_params = {
-  "cut_input_adc",
-  "cut_input_eng",
-  "cut_input_tape",
-  "monitor_level",
-  "softcut_level"
-}
-local initial_levels = {}
 local num_sines = 32
 count = 0
 
-local function getRandomChar(t)
+function getRandomChar(t)
   if t == 1 then
 	  validChars = {"n", "o", "r", "n", "s", "."}
 	else
@@ -36,10 +31,8 @@ local function getRandomChar(t)
 end
 local random_char = getRandomChar()
 
-
-
-
 function init()
+  -- add ability to update poll time
   params:add {
     type = 'option',
     id = 'poll_time',
@@ -59,7 +52,6 @@ function init()
   screen.level(15)
   screen.aa(0)
   screen.line_width(1)
-  -- Start drawing to screen
   screen_refresh_metro = metro.init()
   screen_refresh_metro.event = function()
     if screen_dirty then
@@ -69,33 +61,48 @@ function init()
   end
   screen_refresh_metro:start(1 / SCREEN_FRAMERATE)
   
-  --local p_pitch = poll.set('pitch_in_l', function(hz) hz_in = hz end)
-  --p_pitch:start()
-  --init_softcut()
+  init_softcut()
   params:set("clock_tempo",10)
   clock.run(timers)
 end
 
 function init_softcut()
-
-  softcut.buffer_clear()
-
-  for voice=1,2 do
-    softcut.enable(voice, 1)
-    softcut.buffer(voice, voice)
-    softcut.level(voice, 1.0)
-    softcut.pan(voice, voice == 1 and -1.0 or 1.0)
-    softcut.rate(voice, 1)
-    softcut.loop(voice, 1)
-    softcut.loop_start(voice, 0)
-    softcut.position(voice, 0)
-    softcut.level_input_cut(voice, voice, 1.0)
-    softcut.rec_level(voice, rec_level)
-    softcut.rec(voice, 1)
+  print("softcut init")
+  audio.level_adc_cut(1)
+  audio.level_eng_cut(.2)
+  softcut.level_input_cut(1,1,1.0)
+  softcut.level_input_cut(2,2,1.0)
+  for i=1,2 do
+    softcut.play(i,0)
+    softcut.rate(i,1)
+    softcut.loop(i,1)
+    --softcut.fade_time(1,0.2)
+    --softcut.level_slew_time(1,0.8)
+    --softcut.rate_slew_time(1,0.8)
+    softcut.enable(i,1)
+    softcut.buffer(i,1)
+    softcut.level(i,1.0)
+    softcut.pre_level(i,0.5)
+    softcut.rec_level(i,1)
+    softcut.rec(i,1)
   end
-  for voice=1,2 do
-    softcut.play(voice, playing)
-  end
+  softcut.pan(1,math.random(0,10) * -0.1)
+  softcut.pan(2,math.random(0,10))
+  softcut.loop_start(1,1)
+  softcut.loop_end(1,30)
+  softcut.loop_start(2,60)
+  softcut.loop_end(2,90)
+    
+end
+
+function softcutting()
+  --print("softcutting")
+  --softcut.rec(1,0)
+  softcut.position(1,math.random(1,25))
+  softcut.play(1,1)
+  softcut.position(2,math.random(60,85))
+  softcut.play(2,1)
+  
 end
 
 function timers()
@@ -103,6 +110,7 @@ function timers()
     if(count > 20) then
       clock.sleep(math.random(0,30) * 0.1)
       play_tones()
+      --softcutting()
       --clock.sleep(math.random(1,10))
       --stop_tones()
       if(count < 33) then
@@ -126,13 +134,14 @@ function poll_l()
   end)
   pitch_poll_l:start()
   pitch_poll_l:stop()
-  -- moved count > 10 if
 end
 
 function play_tones()
   for i,v in ipairs(tones) do 
     print(i,v) -- remove
-    
+    -- add mode with "chords" all hitting at once (remove sleep)
+    -- decouple softcutting & tones
+    softcutting()
     engine.amp_atk(i, math.random(1,50) * 0.001)
     engine.amp_rel(i, math.random(1,50) * 0.01)
     

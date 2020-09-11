@@ -19,6 +19,7 @@ local tones = {}
 local poll_timer = 1
 local random_timer = 0
 local num_sines = 32
+chordmode = true
 count = 0
 
 function getRandomChar(t)
@@ -67,7 +68,6 @@ function init()
 end
 
 function init_softcut()
-  print("softcut init")
   audio.level_adc_cut(1)
   audio.level_eng_cut(.2)
   softcut.level_input_cut(1,1,1.0)
@@ -108,7 +108,7 @@ end
 function timers()
   while true do
     if(count > 20) then
-      clock.sleep(math.random(0,30) * 0.1)
+      clock.sleep(math.random(0,1000) * 0.01)
       play_tones()
       --softcutting()
       --clock.sleep(math.random(1,10))
@@ -139,21 +139,24 @@ end
 function play_tones()
   for i,v in ipairs(tones) do 
     print(i,v) -- remove
-    -- add mode with "chords" all hitting at once (remove sleep)
-    -- decouple softcutting & tones
-    softcutting()
     engine.amp_atk(i, math.random(1,50) * 0.001)
     engine.amp_rel(i, math.random(1,50) * 0.01)
-    
     engine.amp(i,math.random(0,250) * 0.001)
     engine.am_add(i, math.random(0,100) * 0.01)
     engine.am_mul(i, math.random(0,100) * 0.01)
+    if(chordmode == false) then
+      softcutting()
+      clock.sleep(math.random(0,30) * 0.1)
+    end
     
-    clock.sleep(math.random(0,30) * 0.1)
     engine.pan_lag(i, math.random(0,10) * 0.1)
     engine.hz_lag(i, math.random(0,10) * 0.1)
     engine.pan(i,math.random(-100,100) * 0.01)
     engine.hz(i, v)
+  end
+  if(chordmode == true) then
+    clock.sleep(math.random(0,30) * 0.1)
+    softcutting()
   end
   darkmode = math.random(0,1)
   selection = math.random(0,6)
@@ -162,8 +165,9 @@ end
 
 function stop_tones()
   for i,v in ipairs(tones) do 
-    engine.amp(i,0)
+    engine.amp(i, 0)
   end
+  clear_tones()
 end
 
 function clear_tones()
@@ -180,6 +184,11 @@ function key(n, z)
     shift = z
   elseif n == 2 then
     if z == 1 then
+      if chordmode then
+        chordmode = false
+      else
+        chordmode = true
+      end
     else
       if darkmode == 0 then
         darkmode = 1
@@ -191,8 +200,9 @@ function key(n, z)
     end
   elseif n == 3 then
     if z == 1 then
-      clear_tones()
+      stop_tones()
     else
+      clear_tones()
       darkmode = 0
       selection = math.random(0,6)
       screen_dirty = true

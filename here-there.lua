@@ -3,7 +3,7 @@
 --   . ??? . . . . . . . . . . . *********** 
 --   . HERE/ . . . . . . . . . . ***********
 --   . THERE . . . . . . . . . . ***********
---   . v1.0. . . . . . . . . . . ***********
+--   . v1.1. . . . . . . . . . . ***********
 --   . . . . . . . . . . . . . . ***********
 --   . . . . . . . . . . . . . *************
 
@@ -98,11 +98,13 @@ end
 function softcutting()
   --print("softcutting")
   --softcut.rec(1,0)
+  --todo: a lot more w/ softcut
   softcut.position(1,math.random(1,25))
   softcut.play(1,1)
   softcut.position(2,math.random(60,85))
   softcut.play(2,1)
-  
+  softcut.pan(1,math.random(0,10) * -0.1)
+  softcut.pan(2,math.random(0,10))
 end
 
 function timers()
@@ -110,9 +112,6 @@ function timers()
     if(count > 20) then
       clock.sleep(math.random(0,1000) * 0.01)
       play_tones()
-      --softcutting()
-      --clock.sleep(math.random(1,10))
-      --stop_tones()
       if(count < 33) then
         clock.sleep(poll_timer)
         poll_l()
@@ -155,7 +154,8 @@ function play_tones()
     engine.hz(i, v)
   end
   if(chordmode == true) then
-    clock.sleep(math.random(0,30) * 0.1)
+    -- todo: decouple softcut timing, or lock to above
+    clock.sleep(math.random(0,1000) * 0.01)
     softcutting()
   end
   darkmode = math.random(0,1)
@@ -184,12 +184,13 @@ function key(n, z)
     shift = z
   elseif n == 2 then
     if z == 1 then
+      init_softcut()
+    else
       if chordmode then
         chordmode = false
       else
         chordmode = true
       end
-    else
       if darkmode == 0 then
         darkmode = 1
         screen_dirty = true

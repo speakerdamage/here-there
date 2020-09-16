@@ -3,12 +3,16 @@
 --   . ??? . . . . . . . . . . . *********** 
 --   . HERE/ . . . . . . . . . . ***********
 --   . THERE . . . . . . . . . . ***********
---   . v1.1. . . . . . . . . . . ***********
+--   . v1.2. . . . . . . . . . . ***********
 --   . . . . . . . . . . . . . . ***********
 --   . . . . . . . . . . . . . *************
 
+-- TODO:
+-- poll amp_in_l/amp_in_r at time of capture and set each sine rel to it
+-- add RecordBuf to engine
 
-engine.name = '32Sines'
+engine.name = 'HereThere'
+fileselect = require 'fileselect'
 
 local darkmode = 0
 local selection = 0
@@ -19,8 +23,35 @@ local tones = {}
 local poll_timer = 1
 local random_timer = 0
 local num_sines = 32
+local poll_hz = -1
+local VOICES = 1
+local cutlength = 30
 chordmode = true
+donerecording = false
 count = 0
+saved = "..."
+cutsample = "..."
+
+local function randomparams()
+  params:set("1speed", math.random(-200,200))
+  params:set("1jitter", math.random(0,500))
+  params:set("1size", math.random(1,500))
+  params:set("1density", math.random(0,512))
+  params:set("1pitch", math.random(-24,0))
+  params:set("1spread", math.random(0,100))
+  params:set("reverb_mix", math.random(0,100))
+  params:set("reverb_room", math.random(0,100))
+  params:set("reverb_damp", math.random(0,100))
+end
+
+local function reset_voice()
+  engine.seek(1, 0)
+end
+
+local function start_voice()
+  reset_voice()
+  engine.gate(1, 1)
+end
 
 function getRandomChar(t)
   if t == 1 then
@@ -49,6 +80,53 @@ function init()
       end
     end
   }
+  local sep = ": "
+
+  params:add_taper("reverb_mix", "*"..sep.."mix", 0, 100, 50, 0, "%")
+  params:set_action("reverb_mix", function(value) engine.reverb_mix(value / 100) end)
+
+  params:add_taper("reverb_room", "*"..sep.."room", 0, 100, 50, 0, "%")
+  params:set_action("reverb_room", function(value) engine.reverb_room(value / 100) end)
+
+  params:add_taper("reverb_damp", "*"..sep.."damp", 0, 100, 50, 0, "%")
+  params:set_action("reverb_damp", function(value) engine.reverb_damp(value / 100) end)
+  
+  local sep = ": "
+  
+  local sep = ": "
+
+  for v = 1, VOICES do
+    params:add_separator()
+
+    params:add_file(v.."sample", v..sep.."sample")
+    params:set_action(v.."sample", function(file) engine.read(v, file) end)
+
+    params:add_taper(v.."volume", v..sep.."volume", -60, 20, 0, 0, "dB")
+    params:set_action(v.."volume", function(value) engine.volume(v, math.pow(10, value / 20)) end)
+
+    params:add_taper(v.."speed", v..sep.."speed", -200, 200, 100, 0, "%")
+    params:set_action(v.."speed", function(value) engine.speed(v, value / 100) end)
+
+    params:add_taper(v.."jitter", v..sep.."jitter", 0, 500, 0, 5, "ms")
+    params:set_action(v.."jitter", function(value) engine.jitter(v, value / 1000) end)
+
+    params:add_taper(v.."size", v..sep.."size", 1, 500, 100, 5, "ms")
+    params:set_action(v.."size", function(value) engine.size(v, value / 1000) end)
+
+    params:add_taper(v.."density", v..sep.."density", 0, 512, 20, 6, "hz")
+    params:set_action(v.."density", function(value) engine.density(v, value) end)
+
+    params:add_taper(v.."pitch", v..sep.."pitch", -24, 24, 0, 0, "st")
+    params:set_action(v.."pitch", function(value) engine.pitch(v, math.pow(0.5, -value / 12)) end)
+
+    params:add_taper(v.."spread", v..sep.."spread", 0, 100, 0, 0, "%")
+    params:set_action(v.."spread", function(value) engine.spread(v, value / 100) end)
+
+    params:add_taper(v.."fade", v..sep.."att / dec", 1, 9000, 1000, 3, "ms")
+    params:set_action(v.."fade", function(value) engine.envscale(v, value / 1000) end)
+  end
+
+ 
   -- Render Style
   screen.level(15)
   screen.aa(0)
@@ -65,15 +143,17 @@ function init()
   init_softcut()
   params:set("clock_tempo",10)
   clock.run(timers)
+  params:bang()
 end
 
 function init_softcut()
   audio.level_adc_cut(1)
-  audio.level_eng_cut(.2)
+  audio.level_eng_cut(0)
   softcut.level_input_cut(1,1,1.0)
   softcut.level_input_cut(2,2,1.0)
+  softcut.buffer_clear()
   for i=1,2 do
-    softcut.play(i,0)
+    softcut.play(i,1)
     softcut.rate(i,1)
     softcut.loop(i,1)
     --softcut.fade_time(1,0.2)
@@ -86,25 +166,45 @@ function init_softcut()
     softcut.rec_level(i,1)
     softcut.rec(i,1)
   end
+  softcut.position(1,1)
+  softcut.position(2,cutlength * 2)
   softcut.pan(1,math.random(0,10) * -0.1)
   softcut.pan(2,math.random(0,10))
   softcut.loop_start(1,1)
-  softcut.loop_end(1,30)
-  softcut.loop_start(2,60)
-  softcut.loop_end(2,90)
-    
+  softcut.loop_end(1,cutlength)
+  softcut.loop_start(2,cutlength * 2)
+  softcut.loop_end(2,cutlength * 3)
+end
+
+function save_cut()
+  saved = "there-"..string.format("%04.0f",10000*math.random())..".wav"
+  softcut.buffer_write_mono(_path.dust.."/audio/here/"..saved,1,cutlength, 1)
+  donerecording = true
+  print("saved file: " ..saved)
+  cutsample = _path.dust.."audio/here/"..saved
+  load_cut(cutsample)
+end
+
+function load_cut(smp)
+  params:set("1sample", smp)
+  print("loaded: " .. smp)
+  randomparams()
+  start_voice()
+  screen_dirty = true
 end
 
 function softcutting()
   --print("softcutting")
   --softcut.rec(1,0)
   --todo: a lot more w/ softcut
+  if(donerecording == false) then
+    save_cut()
+  end
   softcut.position(1,math.random(1,25))
-  softcut.play(1,1)
   softcut.position(2,math.random(60,85))
-  softcut.play(2,1)
   softcut.pan(1,math.random(0,10) * -0.1)
   softcut.pan(2,math.random(0,10))
+  
 end
 
 function timers()
@@ -128,11 +228,15 @@ function poll_l()
     if((value > -1) and (count < num_sines)) then
       local rounded = math.floor(value * 100) * 0.01
       table.insert(tones, rounded)
+      poll_hz = rounded
+      selection = 100
+      screen_dirty = true
       count = count + 1
     end
   end)
   pitch_poll_l:start()
   pitch_poll_l:stop()
+  
 end
 
 function play_tones()
@@ -201,7 +305,9 @@ function key(n, z)
     end
   elseif n == 3 then
     if z == 1 then
-      stop_tones()
+      --stop_tones()
+      randomparams()
+      screen_dirty = true
     else
       clear_tones()
       darkmode = 0
@@ -212,14 +318,29 @@ function key(n, z)
 end
 
 function enc(id,delta)
-  if id == 2 then
-    focus.x = clamp(focus.x + delta, 1, 16)
+  if id == 1 then
+    params:delta("1volume", delta)
+  elseif id == 2 then
+    params:delta("1speed", delta)
+    --focus.x = clamp(focus.x + delta, 1, 16)
   elseif id == 3 then
-    focus.y = clamp(focus.y + delta, 1, 8)
+    params:delta("1pitch", delta)
+    --focus.y = clamp(focus.y + delta, 1, 8)
   end
 end
 
 -- Render
+function draw_hz()
+  screen.aa(0)
+  screen.font_face(8)
+  screen.level(15)
+  --screen.font_size(10)
+  screen.move(60, 40)
+  screen.text_center(poll_hz .. "hz")
+  selection = math.random(0,6)
+  screen_dirty = true
+end
+
 function draw_here()
   if darkmode == 0 then
     screen.aa(0)
@@ -982,6 +1103,8 @@ function redraw()
     draw_drive()
   elseif selection == 6 then
     draw_handwriting()
+  elseif selection == 100 then
+    draw_hz()
   end
   screen.stroke()
   screen.update()

@@ -26,32 +26,12 @@ local num_sines = 32
 local poll_hz = -1
 local VOICES = 1
 local cutlength = 30
+local cutwaiting = true
 chordmode = true
 donerecording = false
 count = 0
 saved = "..."
 cutsample = "..."
-
-local function randomparams()
-  params:set("1speed", math.random(-200,200))
-  params:set("1jitter", math.random(0,500))
-  params:set("1size", math.random(1,500))
-  params:set("1density", math.random(0,512))
-  params:set("1pitch", math.random(-24,0))
-  params:set("1spread", math.random(0,100))
-  params:set("reverb_mix", math.random(0,100))
-  params:set("reverb_room", math.random(0,100))
-  params:set("reverb_damp", math.random(0,100))
-end
-
-local function reset_voice()
-  engine.seek(1, 0)
-end
-
-local function start_voice()
-  reset_voice()
-  engine.gate(1, 1)
-end
 
 function getRandomChar(t)
   if t == 1 then
@@ -101,8 +81,8 @@ function init()
     params:add_file(v.."sample", v..sep.."sample")
     params:set_action(v.."sample", function(file) engine.read(v, file) end)
 
-    params:add_taper(v.."volume", v..sep.."volume", -60, 20, 0, 0, "dB")
-    params:set_action(v.."volume", function(value) engine.volume(v, math.pow(10, value / 20)) end)
+    params:add_taper(v.."glutvol", v..sep.."glutvol", -60, 20, 0, 0, "dB")
+    params:set_action(v.."glutvol", function(value) engine.volume(v, math.pow(10, value / 20)) end)
 
     params:add_taper(v.."speed", v..sep.."speed", -200, 200, 100, 0, "%")
     params:set_action(v.."speed", function(value) engine.speed(v, value / 100) end)
@@ -140,7 +120,22 @@ function init()
   end
   screen_refresh_metro:start(1 / SCREEN_FRAMERATE)
   
-  init_softcut()
+  -- listen to audio
+  -- and initiate recording on incoming audio
+  p_amp_in=poll.set("amp_in_l")
+  -- set period low when primed, default 1 second
+  p_amp_in.time=1
+  p_amp_in.callback=function(val)
+    -- print("incoming signal = "..val)
+    if cutwaiting == true then
+      if val > 0.03 then
+        print("amp in pass")
+        init_softcut()
+      end
+    end
+  end
+  p_amp_in:start()
+  
   params:set("clock_tempo",10)
   clock.run(timers)
   params:bang()
@@ -162,9 +157,13 @@ function init_softcut()
     softcut.enable(i,1)
     softcut.buffer(i,1)
     softcut.level(i,1.0)
+    -- l/r volume controls
+    params:add_control(i .. "cutvol", i .. " cutvol", controlspec.new(0, 1, "lin", 0, 1, ""))
+    params:set_action(i .. "cutvol", function(x) softcut.level(i, x) end)
     softcut.pre_level(i,0.5)
     softcut.rec_level(i,1)
     softcut.rec(i,1)
+    softcut.pan_slew_time(i,0.5)
   end
   softcut.position(1,1)
   softcut.position(2,cutlength * 2)
@@ -174,29 +173,49 @@ function init_softcut()
   softcut.loop_end(1,cutlength)
   softcut.loop_start(2,cutlength * 2)
   softcut.loop_end(2,cutlength * 3)
+  cutwaiting = false
 end
 
 function save_cut()
   saved = "there-"..string.format("%04.0f",10000*math.random())..".wav"
   softcut.buffer_write_mono(_path.dust.."/audio/here/"..saved,1,cutlength, 1)
-  donerecording = true
-  print("saved file: " ..saved)
   cutsample = _path.dust.."audio/here/"..saved
+  donerecording = true
+  clock.sleep(3) -- needs time to write/read
   load_cut(cutsample)
 end
 
 function load_cut(smp)
-  params:set("1sample", smp)
-  print("loaded: " .. smp)
+  params:set("1volume", -10)
   randomparams()
   start_voice()
+  params:set("1sample", smp)
   screen_dirty = true
 end
 
+function randomparams()
+  params:set("1speed", math.random(-200,200))
+  params:set("1jitter", math.random(100,300))
+  params:set("1size", math.random(100,350))
+  params:set("1density", math.random(100,350))
+  --params:set("1pitch", math.random(1,10))
+  params:set("1spread", math.random(40,100))
+  params:set("reverb_mix", math.random(0,100))
+  params:set("reverb_room", math.random(0,100))
+  params:set("reverb_damp", math.random(0,100))
+  print("random params")
+end
+
+function reset_voice()
+  engine.seek(1, 0)
+end
+
+function start_voice()
+  reset_voice()
+  engine.gate(1, 1)
+end
+
 function softcutting()
-  --print("softcutting")
-  --softcut.rec(1,0)
-  --todo: a lot more w/ softcut
   if(donerecording == false) then
     save_cut()
   end
@@ -204,7 +223,6 @@ function softcutting()
   softcut.position(2,math.random(60,85))
   softcut.pan(1,math.random(0,10) * -0.1)
   softcut.pan(2,math.random(0,10))
-  
 end
 
 function timers()
@@ -241,10 +259,11 @@ end
 
 function play_tones()
   for i,v in ipairs(tones) do 
-    print(i,v) -- remove
+    --print(i,v) -- remove
     engine.amp_atk(i, math.random(1,50) * 0.001)
     engine.amp_rel(i, math.random(1,50) * 0.01)
-    engine.amp(i,math.random(0,250) * 0.001)
+    engine.am_in(i, math.random(1,100) * 0.01)
+    engine.amp(i,math.random(0,10) * 0.01)
     engine.am_add(i, math.random(0,100) * 0.01)
     engine.am_mul(i, math.random(0,100) * 0.01)
     if(chordmode == false) then
@@ -288,6 +307,8 @@ function key(n, z)
     shift = z
   elseif n == 2 then
     if z == 1 then
+      -- clear buffers?
+      cutwaiting = true
       init_softcut()
     else
       if chordmode then
@@ -319,13 +340,14 @@ end
 
 function enc(id,delta)
   if id == 1 then
-    params:delta("1volume", delta)
+    params:delta("1glutvol", delta)
   elseif id == 2 then
     params:delta("1speed", delta)
-    --focus.x = clamp(focus.x + delta, 1, 16)
+    -- TODO: control sines amp?
+    params:delta("1cutvol", delta)
+    params:delta("2cutvol", delta)
   elseif id == 3 then
     params:delta("1pitch", delta)
-    --focus.y = clamp(focus.y + delta, 1, 8)
   end
 end
 

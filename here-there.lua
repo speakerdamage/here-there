@@ -28,6 +28,7 @@ poll_hz = -1
 local VOICES = 1
 local cutlength = 30
 local cutwaiting = true
+tonevol = 0
 chordmode = true
 donerecording = false
 count = 0
@@ -52,6 +53,13 @@ function init()
     end
   }
   local sep = ": "
+  
+  --id, name, min, max, default, formatter, wrap
+  params:add_number("tones_vol", "tones_vol", 0, 25, 5)
+  params:set_action("tones_vol", function(val) tonevol = val end)
+  
+  local sep = ": "
+  
 
   params:add_taper("reverb_mix", "*"..sep.."mix", 0, 100, 50, 0, "%")
   params:set_action("reverb_mix", function(value) engine.reverb_mix(value / 100) end)
@@ -63,6 +71,12 @@ function init()
   params:set_action("reverb_damp", function(value) engine.reverb_damp(value / 100) end)
   
   local sep = ": "
+  
+  for i = 1, 2 do
+    -- l/r volume controls
+    params:add_control(i .. "cutvol", i .. " cutvol", controlspec.new(0, 1, "lin", 0, 1, ""))
+    params:set_action(i .. "cutvol", function(x) softcut.level(i, x) end)
+  end
   
   local sep = ": "
 
@@ -148,9 +162,6 @@ function init_softcut()
     softcut.enable(i,1)
     softcut.buffer(i,1)
     softcut.level(i,1.0)
-    -- l/r volume controls
-    params:add_control(i .. "cutvol", i .. " cutvol", controlspec.new(0, 1, "lin", 0, 1, ""))
-    params:set_action(i .. "cutvol", function(x) softcut.level(i, x) end)
     softcut.pre_level(i,0.5)
     softcut.rec_level(i,1)
     softcut.rec(i,1)
@@ -214,6 +225,7 @@ function softcutting()
   softcut.position(2,math.random(60,85))
   softcut.pan(1,math.random(0,10) * -0.1)
   softcut.pan(2,math.random(0,10))
+  
 end
 
 function timers()
@@ -254,7 +266,7 @@ function play_tones()
     engine.amp_atk(i, math.random(1,50) * 0.001)
     engine.amp_rel(i, math.random(1,50) * 0.01)
     engine.am_in(i, math.random(1,100) * 0.01)
-    engine.amp(i,math.random(0,10) * 0.01)
+    engine.amp(i,math.random(0,tonevol) * 0.01)
     engine.am_add(i, math.random(0,100) * 0.01)
     engine.am_mul(i, math.random(0,100) * 0.01)
     if(chordmode == false) then
@@ -267,11 +279,14 @@ function play_tones()
     engine.pan(i,math.random(-100,100) * 0.01)
     engine.hz(i, v)
   end
+  
   if(chordmode == true) then
     -- todo: decouple softcut timing, or lock to above
+    print("chord change")
     clock.sleep(math.random(0,1000) * 0.01)
     softcutting()
   end
+  randomparams() -- does this work here?
   darkmode = math.random(0,1)
   selection = math.random(0,6)
   screen_dirty = true
@@ -318,8 +333,8 @@ function key(n, z)
   elseif n == 3 then
     if z == 1 then
       --stop_tones()
-      randomparams()
-      screen_dirty = true
+      --randomparams()
+      --screen_dirty = true
     else
       clear_tones()
       darkmode = 0

@@ -11,6 +11,8 @@ engine.name = 'HereThere'
 fileselect = require 'fileselect'
 screens = include("lib/screens")
 
+PATH=_path.audio..'here/'
+
 darkmode = 0
 selection = 0
 SCREEN_FRAMERATE = 2
@@ -102,6 +104,8 @@ function init()
   params:add_taper("1fade", "GLUT att / dec", 1, 9000, 1000, 3, "ms")
   params:set_action("1fade", function(value) engine.envscale(1, value / 1000) end)
 
+ -- make data directory
+  if not util.file_exists(PATH) then util.make_dir(PATH) end
  
   -- Render Style
   screen.level(15)

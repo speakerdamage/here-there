@@ -21,7 +21,7 @@ function screens:draw_hz()
   screen.move(60, 50)
   screen.text_center(poll_hz .. "hz")
   selection = math.random(0,6)
-  screen.font_size(10)
+  screen.font_size(8)
   screen_dirty = true
 end
 

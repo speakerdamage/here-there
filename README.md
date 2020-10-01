@@ -1,4 +1,4 @@
-# here-there
+# HERE/THERE
 norns listens to sound input for the first ~30 seconds and then plays back the following:    
  (a) up to 32 sine waves with random parameters, randomly spaced in the stereo field, in [currently] two modes: "chords" and "drones"     
  (b) two separate softcut buffers (l/r, based on inputs), at random positions [currently] in time with the sine actions   

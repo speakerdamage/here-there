@@ -7,16 +7,12 @@
 --   . . . . . . . . . . . . . . ***********
 --   . . . . . . . . . . . . . *************
 
--- TODO:
--- poll amp_in_l/amp_in_r at time of capture and set each sine rel to it
--- add RecordBuf to engine
-
 engine.name = 'HereThere'
 fileselect = require 'fileselect'
 screens = include("lib/screens")
 
 darkmode = 0
-local selection = 0
+selection = 0
 SCREEN_FRAMERATE = 2
 screen_dirty = true
 local validChars

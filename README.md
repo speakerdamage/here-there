@@ -7,12 +7,14 @@ norns listens to sound input for the first ~30 seconds and then plays back the f
 ## Controls   
 k2: change sine mode  
 k1(hold) + k2: reset softcut buffer   
-k3: clear sines and begin polling again  
+k3: clear/freeze sines and begin polling again  
 k1(hold) + k3: randomize granular parameters  
-e1: granular volume      
-e2: softcut volume & granular speed   
-e3: granular pitch     
+e1: sines volume      
+e2: softcut volume  
+e3: granular volume/speed    
 
 TODO:   
 - Grid controls (sines)  
 - UI/screen integration   
+- selectable polling time/frequency
+- more control over durations

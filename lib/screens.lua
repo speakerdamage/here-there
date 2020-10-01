@@ -14,10 +14,14 @@ function screens:draw_hz()
   screen.aa(0)
   screen.font_face(8)
   screen.level(15)
-  --screen.font_size(10)
-  screen.move(60, 40)
+  screen.font_size(20)
+  screen.move(25, 15)
+  screen.text_center("HERE")
+  screen.font_size(16)
+  screen.move(60, 50)
   screen.text_center(poll_hz .. "hz")
   selection = math.random(0,6)
+  screen.font_size(10)
   screen_dirty = true
 end
 

@@ -36,11 +36,14 @@ saved = "..."
 cutsample = "..."
 
 function init()
+  local sep = ": "
+  --params:add_group("SINES", 2)
+  params:add_separator()
   -- add ability to update poll time
   params:add {
     type = 'option',
     id = 'poll_time',
-    name = 'Poll Time',
+    name = 'SINES Poll Time',
     options = {'1', '5', '10', 'random'},
     action = function(val)
       if val == random then
@@ -52,64 +55,56 @@ function init()
       end
     end
   }
-  local sep = ": "
   
   --id, name, min, max, default, formatter, wrap
-  params:add_number("tones_vol", "tones_vol", 0, 25, 5)
+  params:add_number("tones_vol", "SINES Max Vol", 0, 25, 5)
   params:set_action("tones_vol", function(val) tonevol = val end)
   
-  local sep = ": "
+  params:add_separator()
   
+  -- Softcut l/r volume controls
+  params:add_control("1cutvol", "SOFTCUT Left Vol", controlspec.new(0, 1, "lin", 0, 1, ""))
+  params:set_action("1cutvol", function(x) softcut.level(1, x) end)
+  params:add_control("2cutvol", "SOFTCUT Right Vol", controlspec.new(0, 1, "lin", 0, 1, ""))
+  params:set_action("2cutvol", function(x) softcut.level(2, x) end)
 
-  params:add_taper("reverb_mix", "*"..sep.."mix", 0, 100, 50, 0, "%")
+  params:add_separator()
+
+  params:add_taper("reverb_mix", "GLUT Reverb mix", 0, 100, 50, 0, "%")
   params:set_action("reverb_mix", function(value) engine.reverb_mix(value / 100) end)
 
-  params:add_taper("reverb_room", "*"..sep.."room", 0, 100, 50, 0, "%")
+  params:add_taper("reverb_room", "GLUT Reverb room", 0, 100, 50, 0, "%")
   params:set_action("reverb_room", function(value) engine.reverb_room(value / 100) end)
 
-  params:add_taper("reverb_damp", "*"..sep.."damp", 0, 100, 50, 0, "%")
+  params:add_taper("reverb_damp", "GLUT Reverb damp", 0, 100, 50, 0, "%")
   params:set_action("reverb_damp", function(value) engine.reverb_damp(value / 100) end)
-  
-  local sep = ": "
-  
-  for i = 1, 2 do
-    -- l/r volume controls
-    params:add_control(i .. "cutvol", i .. " cutvol", controlspec.new(0, 1, "lin", 0, 1, ""))
-    params:set_action(i .. "cutvol", function(x) softcut.level(i, x) end)
-  end
-  
-  local sep = ": "
 
-  for v = 1, VOICES do
-    params:add_separator()
+  params:add_file("1sample", "GLUT sample")
+  params:set_action("1sample", function(file) engine.read(1, file) end)
 
-    params:add_file(v.."sample", v..sep.."sample")
-    params:set_action(v.."sample", function(file) engine.read(v, file) end)
+  params:add_taper("1glutvol", "GLUT vol", -60, 20, 0, 0, "dB")
+  params:set_action("1glutvol", function(value) engine.volume(1, math.pow(10, value / 20)) end)
 
-    params:add_taper(v.."glutvol", v..sep.."glutvol", -60, 20, 0, 0, "dB")
-    params:set_action(v.."glutvol", function(value) engine.volume(v, math.pow(10, value / 20)) end)
+  params:add_taper("1speed", "GLUT speed", -200, 200, 100, 0, "%")
+  params:set_action("1speed", function(value) engine.speed(1, value / 100) end)
 
-    params:add_taper(v.."speed", v..sep.."speed", -200, 200, 100, 0, "%")
-    params:set_action(v.."speed", function(value) engine.speed(v, value / 100) end)
+  params:add_taper("1jitter", "GLUT jitter", 0, 500, 0, 5, "ms")
+  params:set_action("1jitter", function(value) engine.jitter(1, value / 1000) end)
 
-    params:add_taper(v.."jitter", v..sep.."jitter", 0, 500, 0, 5, "ms")
-    params:set_action(v.."jitter", function(value) engine.jitter(v, value / 1000) end)
+  params:add_taper("1size", "GLUT size", 1, 500, 100, 5, "ms")
+  params:set_action("1size", function(value) engine.size(1, value / 1000) end)
 
-    params:add_taper(v.."size", v..sep.."size", 1, 500, 100, 5, "ms")
-    params:set_action(v.."size", function(value) engine.size(v, value / 1000) end)
+  params:add_taper("1density", "GLUT density", 0, 512, 20, 6, "hz")
+  params:set_action("1density", function(value) engine.density(1, value) end)
 
-    params:add_taper(v.."density", v..sep.."density", 0, 512, 20, 6, "hz")
-    params:set_action(v.."density", function(value) engine.density(v, value) end)
+  params:add_taper("1pitch", "GLUT pitch", -24, 24, 0, 0, "st")
+  params:set_action("1pitch", function(value) engine.pitch(1, math.pow(0.5, -value / 12)) end)
 
-    params:add_taper(v.."pitch", v..sep.."pitch", -24, 24, 0, 0, "st")
-    params:set_action(v.."pitch", function(value) engine.pitch(v, math.pow(0.5, -value / 12)) end)
+  params:add_taper("1spread", "GLUT spread", 0, 100, 0, 0, "%")
+  params:set_action("1spread", function(value) engine.spread(1, value / 100) end)
 
-    params:add_taper(v.."spread", v..sep.."spread", 0, 100, 0, 0, "%")
-    params:set_action(v.."spread", function(value) engine.spread(v, value / 100) end)
-
-    params:add_taper(v.."fade", v..sep.."att / dec", 1, 9000, 1000, 3, "ms")
-    params:set_action(v.."fade", function(value) engine.envscale(v, value / 1000) end)
-  end
+  params:add_taper("1fade", "GLUT att / dec", 1, 9000, 1000, 3, "ms")
+  params:set_action("1fade", function(value) engine.envscale(1, value / 1000) end)
 
  
   -- Render Style
@@ -189,23 +184,21 @@ end
 
 function load_cut(smp)
   params:set("1glutvol", -10)
+  params:set("1sample", smp)
   randomparams()
   start_voice()
-  params:set("1sample", smp)
   screen_dirty = true
 end
 
 function randomparams()
   params:set("1speed", math.random(-200,200))
   params:set("1jitter", math.random(100,300))
-  params:set("1size", math.random(100,350))
-  params:set("1density", math.random(100,350))
-  --params:set("1pitch", math.random(1,10))
-  params:set("1spread", math.random(40,100))
-  params:set("reverb_mix", math.random(0,100))
-  params:set("reverb_room", math.random(0,100))
-  params:set("reverb_damp", math.random(0,100))
-  --print("random params")
+  params:set("1size", math.random(100,250))
+  params:set("1density", math.random(20,250))
+  params:set("1spread", math.random(60,95))
+  --params:set("reverb_mix", math.random(10,40))
+  --params:set("reverb_room", math.random(30,80))
+  --params:set("reverb_damp", math.random(30,80))
 end
 
 function reset_voice()
@@ -282,7 +275,7 @@ function play_tones()
   
   if(chordmode == true) then
     -- todo: decouple softcut timing, or lock to above
-    print("chord change")
+    --print("chord change")
     clock.sleep(math.random(0,1000) * 0.01)
     softcutting()
   end
@@ -333,7 +326,7 @@ function key(n, z)
   elseif n == 3 then
     if z == 1 then
       --stop_tones()
-      --randomparams()
+      randomparams()
       --screen_dirty = true
     else
       clear_tones()
@@ -346,14 +339,16 @@ end
 
 function enc(id,delta)
   if id == 1 then
-    params:delta("1glutvol", delta)
+    --SINES vol
+    params:delta("tones_vol", delta)
   elseif id == 2 then
-    params:delta("1speed", delta)
-    -- TODO: control sines amp?
+    -- CUT vol
     params:delta("1cutvol", delta)
     params:delta("2cutvol", delta)
   elseif id == 3 then
-    params:delta("1pitch", delta)
+    -- GLUT vol/etc
+    params:delta("1glutvol", delta)
+    params:delta("1speed", delta)
   end
 end
 
